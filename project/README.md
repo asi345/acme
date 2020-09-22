@@ -29,7 +29,7 @@ contain the public key corresponding to the private key used to sign
 the JWS.
 ```
 
-`ES256` is an elliptic curve signing algorithm with SHA256 for hashing.
+`ES256` is an elliptic curve signing algorithm with SHA256 for hashing. [Example in Cryptography lib](https://cryptography.io/en/latest/hazmat/primitives/asymmetric/ec/#elliptic-curve-signature-algorithms)
 
 Example Payload to create new account:
 
