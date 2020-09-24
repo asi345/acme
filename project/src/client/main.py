@@ -80,6 +80,8 @@ def test_jwt():
     private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
     public_key = private_key.public_key()
 
+    print()
+
     protected_headers_dict = {
         "alg": "ES256",
         "jwk": {...},
