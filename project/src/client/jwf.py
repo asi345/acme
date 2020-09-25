@@ -3,10 +3,8 @@ import json
 import uuid
 from dataclasses import dataclass, field
 
-import requests
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import (
     RSAPrivateKeyWithSerialization,
     RSAPublicKeyWithSerialization,
@@ -15,12 +13,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import (
 
 from src.utils.utils import (
     b64_encode,
-    DATA_DIR,
-    SRC_DIR,
     _b64_encode_bytes,
-    b64_decode,
-    ACME_ENDPOINT_NONCE,
-    ACME_ENDPOINT_REGISTER, get_private_key,
 )
 
 
@@ -155,49 +148,3 @@ class JWSBody(JWFBaseClass):
         :return: triple of header, payload and signature in base64
         """
         return self.to_b64json().split(".")
-
-
-def get_nonce(acme_server: str):
-    assert acme_server.endswith("/")
-    r = requests.get(
-        acme_server + ACME_ENDPOINT_NONCE, verify=str(SRC_DIR / "pebble.minica.pem")
-    )
-    r.raise_for_status()
-    return r.headers["Replay-Nonce"]
-
-
-if __name__ == "__main__":
-    ACME_SERVER = "https://localhost:14000/"
-
-    private_key = get_private_key()
-
-    jwk = JWK("RSA", "RS256", private_key, kid="1")
-    header = JWSProtectedHeader(
-        "RS256", get_nonce(ACME_SERVER), ACME_SERVER + ACME_ENDPOINT_REGISTER, jwk
-    )
-    payload = JWSPayload(
-        payload_data={
-            "termsOfServiceAgreed": True,
-            "contact": ["mailto:certificates@example.org", "mailto:admin@example.org"],
-        }
-    )
-    body = JWSBody(header, payload)
-
-    b64_header, b64_payload, b64_sig = body.get_request_elements()
-    t = {
-        "protected": f"{b64_header}",
-        "payload": f"{b64_payload}",
-        "signature": f"{b64_sig}",
-    }
-
-    header = {"Content-Type": "application/jose+json"}
-    rp = requests.post(
-        ACME_SERVER + ACME_ENDPOINT_REGISTER,
-        data=json.dumps(t),
-        verify=str(SRC_DIR / "pebble.minica.pem"),
-        headers=header,
-    )
-    print(rp.status_code)
-    print(rp.headers)
-    print(rp.content.decode("utf-8"))
-

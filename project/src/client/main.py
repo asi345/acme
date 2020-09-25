@@ -1,99 +1,14 @@
-import base64
+import json
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, padding, ec
+import requests
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
-from jose import jws
 
-from src.utils.utils import DATA_DIR
+from src.client.jwf import JWK, JWSProtectedHeader, JWSPayload, JWSBody
+from src.utils.utils import ACME_ENDPOINT_REGISTER, SRC_DIR, get_private_key, get_nonce
 
-ACME_SERVER = "localhost"
+ACME_DOMAIN = "localhost"
 ACME_PORT = "14000"
-
-
-def generate_private_key():
-    private_key = rsa.generate_private_key(
-        public_exponent=65537, key_size=2048, backend=default_backend()
-    )
-    public_key = private_key.public_key()
-    with (DATA_DIR / "private.pem").open("wb") as f:
-        f.write(
-            private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.BestAvailableEncryption(
-                    b"passphrase"
-                ),
-            )
-        )
-    with (DATA_DIR / "public.pem").open("wb") as f:
-        f.write(
-            public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo,
-            )
-        )
-
-    message = b"A message I want to sign"
-    signature = private_key.sign(
-        message,
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH
-        ),
-        hashes.SHA256(),
-    )
-    print(base64.urlsafe_b64encode(signature))
-    print(public_key)
-
-    public_key.verify(
-        signature=signature,
-        data=message,
-        padding=padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH
-        ),
-        algorithm=hashes.SHA256(),
-    )
-
-
-"""
-{
-     "protected": base64url({
-       "alg": "ES256",
-       "jwk": {...},
-       "nonce": "6S8IqOGY7eL2lsGoTZYifg",
-       "url": "https://example.com/acme/new-account"
-     }),
-     "payload": base64url({
-       "termsOfServiceAgreed": true,
-       "contact": [
-         "mailto:cert-admin@example.org",
-         "mailto:admin@example.org"
-       ]
-     }),
-     "signature": "RZPOnYoPs1PhjszF...-nh6X1qtOFPB519I"
-}
-"""
-
-
-def test_jwt():
-    private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
-    public_key = private_key.public_key()
-
-    print()
-
-    protected_headers_dict = {
-        "alg": "ES256",
-        "jwk": {...},
-        "nonce": "bKYkcJpvMPArZ3QEIUg2bw",
-        "url": "https://0.0.0.0:14000/nonce-plz",
-    }
-    payload_dict = {
-        "termsOfServiceAgreed": True,
-        "contact": ["mailto:cert-admin@example.org", "mailto:admin@example.org"],
-    }
-    base64.b64encode()
-    complete_payload = {}
+ACME_SERVER = f"https://{ACME_DOMAIN}:{ACME_PORT}/"
 
 
 class TransportHelper:
@@ -132,5 +47,34 @@ class TransportHelper:
 
 
 if __name__ == "__main__":
-    # generate_private_key()
-    test_jwt()
+    private_key = get_private_key()
+
+    jwk = JWK("RSA", "RS256", private_key, kid="1")
+    header = JWSProtectedHeader(
+        "RS256", get_nonce(ACME_SERVER), ACME_SERVER + ACME_ENDPOINT_REGISTER, jwk
+    )
+    payload = JWSPayload(
+        payload_data={
+            "termsOfServiceAgreed": True,
+            "contact": ["mailto:certificates@example.org", "mailto:admin@example.org"],
+        }
+    )
+    body = JWSBody(header, payload)
+
+    b64_header, b64_payload, b64_sig = body.get_request_elements()
+    t = {
+        "protected": f"{b64_header}",
+        "payload": f"{b64_payload}",
+        "signature": f"{b64_sig}",
+    }
+
+    header = {"Content-Type": "application/jose+json"}
+    rp = requests.post(
+        ACME_SERVER + ACME_ENDPOINT_REGISTER,
+        data=json.dumps(t),
+        verify=str(SRC_DIR / "pebble.minica.pem"),
+        headers=header,
+    )
+    print(rp.status_code)
+    print(rp.headers)
+    print(rp.content.decode("utf-8"))

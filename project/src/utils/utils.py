@@ -2,6 +2,7 @@ import base64
 import logging
 from pathlib import Path
 
+import requests
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -71,3 +72,12 @@ def get_private_key(
             )
 
     return private_key
+
+
+def get_nonce(acme_server: str):
+    assert acme_server.endswith("/")
+    r = requests.get(
+        acme_server + ACME_ENDPOINT_NONCE, verify=str(SRC_DIR / "pebble.minica.pem")
+    )
+    r.raise_for_status()
+    return r.headers["Replay-Nonce"]
