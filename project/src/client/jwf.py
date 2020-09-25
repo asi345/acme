@@ -2,6 +2,7 @@ import binascii
 import json
 import uuid
 from dataclasses import dataclass, field
+from typing import List
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -11,6 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import (
     RSAPublicNumbers,
 )
 
+from src.utils.exceptions import MissingJWKandKID
 from src.utils.utils import (
     b64_encode,
     _b64_encode_bytes,
@@ -86,15 +88,32 @@ class JWSProtectedHeader(JWFBaseClass):
     algorithm: str = field()
     nonce: str = field()
     url: str = field()
-    jwk: JWK = field()
+    kid: str = field(default=None)
+    jwk: JWK = field(default=None)
 
     def _to_data(self) -> None:
-        self.data = {
-            "alg": self.algorithm,
-            "nonce": self.nonce,
-            "url": self.url,
-            "jwk": self.jwk.data,
-        }
+        if not self.kid and not self.jwk:
+            raise MissingJWKandKID(
+                "JWS Protected header requires JWK or KID, but got none."
+            )
+        if self.kid:
+            # if a kid is present use this one
+            self.data = {
+                "alg": self.algorithm,
+                "nonce": self.nonce,
+                "url": self.url,
+                "kid": self.kid,
+            }
+            return
+
+        if self.jwk:
+            self.data = {
+                "alg": self.algorithm,
+                "nonce": self.nonce,
+                "url": self.url,
+                "jwk": self.jwk.data,
+            }
+
 
 
 @dataclass
@@ -113,8 +132,8 @@ class JWSBody(JWFBaseClass):
 
     def _to_data(self):
         tmp = dict()
-        tmp.update(header.data)
-        tmp.update(payload.data)
+        tmp.update(self.header.data)
+        tmp.update(self.payload.data)
         tmp.update({"signature": self._create_signature()})
         self.data = tmp
 
@@ -143,7 +162,7 @@ class JWSBody(JWFBaseClass):
     def to_b64json(self, encoding: str = "utf-8") -> str:
         return f"{self.header_payload_b64json('utf-8')}.{self._create_signature()}"
 
-    def get_request_elements(self):
+    def get_request_elements(self) -> List[str]:
         """
         :return: triple of header, payload and signature in base64
         """

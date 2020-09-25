@@ -1,0 +1,2 @@
+class MissingJWKandKID(Exception):
+    pass

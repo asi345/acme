@@ -1,10 +1,20 @@
 import json
+import logging
 
 import requests
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
+from requests import Response
 
 from src.client.jwf import JWK, JWSProtectedHeader, JWSPayload, JWSBody
-from src.utils.utils import ACME_ENDPOINT_REGISTER, SRC_DIR, get_private_key, get_nonce
+from src.utils.utils import (
+    ACME_ENDPOINT_REGISTER,
+    SRC_DIR,
+    get_private_key,
+    ACME_ENDPOINT_NONCE,
+)
+
+LOGGER = logging.getLogger(__name__)
+
 
 ACME_DOMAIN = "localhost"
 ACME_PORT = "14000"
@@ -13,68 +23,126 @@ ACME_SERVER = f"https://{ACME_DOMAIN}:{ACME_PORT}/"
 
 class TransportHelper:
     def __init__(
-        self,
-        server: str,
-        signing_algo: str,
-        private_key: RSAPrivateKeyWithSerialization,
+        self, server: str, private_key: RSAPrivateKeyWithSerialization = None,
     ):
         self.server = server
-        self.signing_algo = signing_algo
-        self.nonces = list()
-        self.private_key = private_key
-        self.public_key = private_key.public_key()
+        self.last_nonces = set()
+        self.session = requests.Session()
+        self.session.verify = str(SRC_DIR / "pebble.minica.pem")
+        self.account_url = None
+        if private_key:
+            self.private_key = private_key
+        else:
+            self.private_key = get_private_key()
+        self.jwk = None
+        self.kid = "2"  # TODO: replace with uuid
 
-    def _convert_to_jws(self, payload, new_account: bool = False):
-        if not self.nonces:
-            self._get_new_nonce()
+        LOGGER.info("Registering for new ACME account.")
+        self._register()
 
-        alg_header = {"alg": self.signing_algo}
-        nonce_header = {"nonce": self.nonces.pop()}
-        jws_header = {
-            "payload": payload,
-        }
-        if new_account:
-            jws_header["kid"] = self.public_key
+    def _register(self):
+        if not self.account_url:
+            # account does not exist yet
+            # TODO: ask the server whether it exists already
+            registration_url = self.server + ACME_ENDPOINT_REGISTER
 
-    def _get_new_nonce(self):
-        pass
+            registration_payload = {
+                "termsOfServiceAgreed": True,
+                "contact": [
+                    "mailto:certificates@example.org",
+                    "mailto:admin@example.org",
+                ],
+            }
 
-    def post(self):
-        pass
+            self.jwk = JWK("RSA", "RS256", self.private_key, kid=self.kid)
+            protected_header = JWSProtectedHeader(
+                "RS256", self.nonce, registration_url, jwk=self.jwk
+            )
+            r = self.post(
+                registration_url,
+                registration_payload,
+                protected_header_override=protected_header,
+            )
+
+            self.account_url = r.headers["Location"]
+
+    def _post(self, url: str, b64_header, b64_payload, b64_signature) -> Response:
+        header = {"Content-Type": "application/jose+json"}
+        r = self.session.post(
+            url,
+            data=json.dumps(
+                {
+                    "protected": f"{b64_header}",
+                    "payload": f"{b64_payload}",
+                    "signature": f"{b64_signature}",
+                }
+            ),
+            headers=header,
+        )
+        print(r.status_code)
+        print(r.headers)
+        print(r.content.decode("utf-8"))
+        r.raise_for_status()
+
+        self.last_nonces.add(r.headers["Replay-Nonce"])
+
+        return r
+
+    def _get_protected_header(self, url: str) -> JWSProtectedHeader:
+        return JWSProtectedHeader(
+            "RS256", self.nonce, url, jwk=self.jwk, kid=self.account_url
+        )
+
+    def post(
+        self,
+        url: str,
+        content: dict,
+        protected_header_override: JWSProtectedHeader = None,
+    ) -> Response:
+        """
+        Create valid ACME post request content consisting of protected header,
+        payload and signature.
+        :param url
+        :param content:
+        :return: Response
+        """
+        if protected_header_override:
+            proteced_header = protected_header_override
+        else:
+            proteced_header = self._get_protected_header(url)
+
+        payload = JWSPayload(content)
+        body = JWSBody(proteced_header, payload)
+        return self._post(url, *body.get_request_elements())
 
     def get(self):
         pass
 
+    def _get_nonce(self) -> None:
+        assert self.server.endswith("/")
+        r = self.session.get(self.server + ACME_ENDPOINT_NONCE)
+        r.raise_for_status()
+        self.last_nonces.add(r.headers["Replay-Nonce"])
+
+    @property
+    def nonce(self):
+        if not self.last_nonces:
+            self._get_nonce()
+        return self.last_nonces.pop()
+
 
 if __name__ == "__main__":
-    private_key = get_private_key()
+    # private_key = get_private_key()
+    #
+    # jwk = JWK("RSA", "RS256", private_key, kid="1")
+    # header = JWSProtectedHeader(
+    #     "RS256", get_nonce(ACME_SERVER), ACME_SERVER + ACME_ENDPOINT_REGISTER, jwk
+    # )
+    # payload = JWSPayload(
+    #     payload_data=
+    # )
+    # body = JWSBody(header, payload)
+    #
+    # b64_header, b64_payload, b64_sig = body.get_request_elements()
 
-    jwk = JWK("RSA", "RS256", private_key, kid="1")
-    header = JWSProtectedHeader(
-        "RS256", get_nonce(ACME_SERVER), ACME_SERVER + ACME_ENDPOINT_REGISTER, jwk
-    )
-    payload = JWSPayload(
-        payload_data={
-            "termsOfServiceAgreed": True,
-            "contact": ["mailto:certificates@example.org", "mailto:admin@example.org"],
-        }
-    )
-    body = JWSBody(header, payload)
-
-    b64_header, b64_payload, b64_sig = body.get_request_elements()
-    t = {
-        "protected": f"{b64_header}",
-        "payload": f"{b64_payload}",
-        "signature": f"{b64_sig}",
-    }
-
-    header = {"Content-Type": "application/jose+json"}
-    rp = requests.post(
-        ACME_SERVER + ACME_ENDPOINT_REGISTER,
-        data=json.dumps(t),
-        verify=str(SRC_DIR / "pebble.minica.pem"),
-        headers=header,
-    )
-    print(rp.status_code)
-    print(rp.headers)
-    print(rp.content.decode("utf-8"))
+    trans = TransportHelper(ACME_SERVER)

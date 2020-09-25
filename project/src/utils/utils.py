@@ -72,12 +72,3 @@ def get_private_key(
             )
 
     return private_key
-
-
-def get_nonce(acme_server: str):
-    assert acme_server.endswith("/")
-    r = requests.get(
-        acme_server + ACME_ENDPOINT_NONCE, verify=str(SRC_DIR / "pebble.minica.pem")
-    )
-    r.raise_for_status()
-    return r.headers["Replay-Nonce"]
