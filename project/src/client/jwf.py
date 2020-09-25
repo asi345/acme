@@ -137,7 +137,8 @@ class JWSBody(JWFBaseClass):
     def _to_data(self):
         tmp = dict()
         tmp.update(self.header.data)
-        tmp.update(self.payload.data)
+        if self.payload.data:
+            tmp.update(self.payload.data)
         tmp.update({"signature": self._create_signature()})
         self.data = tmp
 

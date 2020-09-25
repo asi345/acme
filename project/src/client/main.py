@@ -12,6 +12,7 @@ from src.utils.utils import (
     SRC_DIR,
     get_private_key,
     ACME_ENDPOINT_NONCE,
+    ACME_ENDPOINT_ORDER,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -121,8 +122,12 @@ class TransportHelper:
     def get(self):
         pass
 
-    def post_get(self, url: str, protected_header_override: JWSProtectedHeader = None):
-        return self.post(url, content=None, protected_header_override=protected_header_override)
+    def post_as_get(
+        self, url: str, protected_header_override: JWSProtectedHeader = None
+    ):
+        return self.post(
+            url, content=None, protected_header_override=protected_header_override
+        )
 
     def _get_nonce(self) -> None:
         assert self.server.endswith("/")
@@ -138,18 +143,16 @@ class TransportHelper:
 
 
 if __name__ == "__main__":
-    # private_key = get_private_key()
-    #
-    # jwk = JWK("RSA", "RS256", private_key, kid="1")
-    # header = JWSProtectedHeader(
-    #     "RS256", get_nonce(ACME_SERVER), ACME_SERVER + ACME_ENDPOINT_REGISTER, jwk
-    # )
-    # payload = JWSPayload(
-    #     payload_data=
-    # )
-    # body = JWSBody(header, payload)
-    #
-    # b64_header, b64_payload, b64_sig = body.get_request_elements()
-
     trans = TransportHelper(ACME_SERVER)
-    r = trans.post(url="https://localhost:14000/list-orderz/1", content={})
+    r = trans.post_as_get(url="https://localhost:14000/list-orderz/1")
+    ro = trans.post(
+        url=ACME_SERVER + ACME_ENDPOINT_ORDER,
+        content={
+            "identifiers": [
+                {"type": "dns", "value": "www.example.org"},
+                {"type": "dns", "value": "example.org"},
+            ],
+            "notBefore": "2016-01-01T00:04:00+04:00",
+            "notAfter": "2016-01-08T00:04:00+04:00",
+        },
+    )
