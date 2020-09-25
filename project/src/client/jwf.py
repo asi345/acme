@@ -13,7 +13,15 @@ from cryptography.hazmat.primitives.asymmetric.rsa import (
     RSAPublicNumbers,
 )
 
-from src.utils.utils import b64_encode, DATA_DIR, SRC_DIR, _b64_encode_bytes
+from src.utils.utils import (
+    b64_encode,
+    DATA_DIR,
+    SRC_DIR,
+    _b64_encode_bytes,
+    b64_decode,
+    ACME_ENDPOINT_NONCE,
+    ACME_ENDPOINT_REGISTER,
+)
 
 
 class JWFBaseClass:
@@ -45,7 +53,7 @@ class JWK(JWFBaseClass):
     """
 
     key_type: str = field()
-    curve: str = field()
+    algorithm: str = field()
     private_key: RSAPrivateKeyWithSerialization = field()
     kid: str = field(default=str(uuid.uuid4()))
 
@@ -62,11 +70,13 @@ class JWK(JWFBaseClass):
         modulus = f"{self.public_key.public_numbers().n:x}"
 
         if len(exponent) % 2:
-            # if exponent is not an even number of hex digits make it even by prepending a 0
+            # if exponent is not an even number of hex digits make it even
+            # by prepending 0
             exponent = f"0{exponent}"
 
         if len(modulus) % 2:
-            # if exponent is not an even number of hex digits make it even by prepending a 0
+            # if exponent is not an even number of hex digits make it even
+            # by prepending 0
             modulus = f"0{modulus}"
 
         self.data = {
@@ -74,7 +84,7 @@ class JWK(JWFBaseClass):
             "n": _b64_encode_bytes(binascii.unhexlify(modulus)).decode("utf-8"),
             "e": _b64_encode_bytes(binascii.unhexlify(exponent)).decode("utf-8"),
             "kid": self.kid,
-            "alg": "RS256",
+            "alg": self.algorithm,
         }
 
 
@@ -94,8 +104,9 @@ class JWSProtectedHeader(JWFBaseClass):
         }
 
 
+@dataclass
 class JWSPayload(JWFBaseClass):
-    payload_data = dict()
+    payload_data: dict = field(default_factory=dict())
 
     def _to_data(self):
         self.data = self.payload_data
@@ -139,9 +150,25 @@ class JWSBody(JWFBaseClass):
     def to_b64json(self, encoding: str = "utf-8") -> str:
         return f"{self.header_payload_b64json('utf-8')}.{self._create_signature()}"
 
+    def get_request_elements(self):
+        """
+        :return: triple of header, payload and signature in base64
+        """
+        return self.to_b64json().split(".")
+
+
+def get_nonce(acme_server: str):
+    assert acme_server.endswith("/")
+    r = requests.get(
+        acme_server + ACME_ENDPOINT_NONCE, verify=str(SRC_DIR / "pebble.minica.pem")
+    )
+    r.raise_for_status()
+    return r.headers["Replay-Nonce"]
+
 
 if __name__ == "__main__":
-    # private_key = ec.generate_private_key(ec.SECP256K1(), backend=default_backend())
+    ACME_SERVER = "https://localhost:14000/"
+
     if not (DATA_DIR / "private.pem").exists():
         private_key = rsa.generate_private_key(
             public_exponent=65537, key_size=2048, backend=default_backend()
@@ -160,60 +187,33 @@ if __name__ == "__main__":
                 f.read(), password=None, backend=default_backend()
             )
 
-    # print(
-    #     private_key.public_key()
-    #     .public_bytes(
-    #         encoding=serialization.Encoding.PEM,
-    #         format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    #     )
-    #     .decode("utf-8")
-    # )
-    # print(
-    #     private_key.private_bytes(
-    #         encoding=serialization.Encoding.PEM,
-    #         format=serialization.PrivateFormat.PKCS8,
-    #         encryption_algorithm=serialization.NoEncryption(),
-    #     ).decode("utf-8")
-    # )
-
-    r = requests.get(
-        "https://localhost:14000/nonce-plz", verify=str(SRC_DIR / "pebble.minica.pem")
-    )
-    nonce = r.headers["Replay-Nonce"]
-    print(nonce)
-
     jwk = JWK("RSA", "RS256", private_key, kid="1")
-
-    # print(jwk.to_json())
-
     header = JWSProtectedHeader(
-        "RS256", nonce, "https://localhost:14000/sign-me-up", jwk
+        "RS256", get_nonce(ACME_SERVER), ACME_SERVER + ACME_ENDPOINT_REGISTER, jwk
     )
-    payload = JWSPayload()
-    payload.payload_data = {
-        "termsOfServiceAgreed": True,
-        "contact": ["mailto:certificates@example.org", "mailto:admin@example.org"],
-    }
+    payload = JWSPayload(
+        payload_data={
+            "termsOfServiceAgreed": True,
+            "contact": ["mailto:certificates@example.org", "mailto:admin@example.org"],
+        }
+    )
     body = JWSBody(header, payload)
-    jws = body.to_b64json()
 
-    print(body.to_json())
-
-    print(jws)
-
-    header, payload, sig = jws.split(".")
-
-    t = {"protected": f"{header}", "payload": f"{payload}", "signature": f"{sig}"}
+    b64_header, b64_payload, b64_sig = body.get_request_elements()
+    t = {
+        "protected": f"{b64_header}",
+        "payload": f"{b64_payload}",
+        "signature": f"{b64_sig}",
+    }
 
     header = {"Content-Type": "application/jose+json"}
     rp = requests.post(
-        "https://localhost:14000/sign-me-up",
+        ACME_SERVER + ACME_ENDPOINT_REGISTER,
         data=json.dumps(t),
         verify=str(SRC_DIR / "pebble.minica.pem"),
         headers=header,
     )
     print(rp.status_code)
+    print(rp.headers)
     print(rp.content.decode("utf-8"))
 
-    print(json.dumps(t))
-    print()
