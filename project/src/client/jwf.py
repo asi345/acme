@@ -115,7 +115,6 @@ class JWSProtectedHeader(JWFBaseClass):
             }
 
 
-
 @dataclass
 class JWSPayload(JWFBaseClass):
     payload_data: dict = field(default_factory=dict())
@@ -123,6 +122,11 @@ class JWSPayload(JWFBaseClass):
     def _to_data(self):
         self.data = self.payload_data
 
+    def to_json(self) -> str:
+        if self.payload_data:
+            return super().to_json()
+        else:
+            return ''
 
 @dataclass
 class JWSBody(JWFBaseClass):

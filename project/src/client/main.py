@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Optional, Dict
 
 import requests
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
@@ -96,7 +97,7 @@ class TransportHelper:
     def post(
         self,
         url: str,
-        content: dict,
+        content: Optional[Dict],
         protected_header_override: JWSProtectedHeader = None,
     ) -> Response:
         """
@@ -104,6 +105,7 @@ class TransportHelper:
         payload and signature.
         :param url
         :param content:
+        :param protected_header_override: protected header to use instead of normal one
         :return: Response
         """
         if protected_header_override:
@@ -113,10 +115,14 @@ class TransportHelper:
 
         payload = JWSPayload(content)
         body = JWSBody(proteced_header, payload)
+        print(body.to_json())
         return self._post(url, *body.get_request_elements())
 
     def get(self):
         pass
+
+    def post_get(self, url: str, protected_header_override: JWSProtectedHeader = None):
+        return self.post(url, content=None, protected_header_override=protected_header_override)
 
     def _get_nonce(self) -> None:
         assert self.server.endswith("/")
@@ -146,3 +152,4 @@ if __name__ == "__main__":
     # b64_header, b64_payload, b64_sig = body.get_request_elements()
 
     trans = TransportHelper(ACME_SERVER)
+    r = trans.post(url="https://localhost:14000/list-orderz/1", content={})
