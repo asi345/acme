@@ -20,7 +20,7 @@ from src.utils.utils import (
     _b64_encode_bytes,
     b64_decode,
     ACME_ENDPOINT_NONCE,
-    ACME_ENDPOINT_REGISTER,
+    ACME_ENDPOINT_REGISTER, get_private_key,
 )
 
 
@@ -169,23 +169,7 @@ def get_nonce(acme_server: str):
 if __name__ == "__main__":
     ACME_SERVER = "https://localhost:14000/"
 
-    if not (DATA_DIR / "private.pem").exists():
-        private_key = rsa.generate_private_key(
-            public_exponent=65537, key_size=2048, backend=default_backend()
-        )
-        with (DATA_DIR / "private.pem").open("wb") as f:
-            f.write(
-                private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption(),
-                )
-            )
-    else:
-        with (DATA_DIR / "private.pem").open("rb") as f:
-            private_key = serialization.load_pem_private_key(
-                f.read(), password=None, backend=default_backend()
-            )
+    private_key = get_private_key()
 
     jwk = JWK("RSA", "RS256", private_key, kid="1")
     header = JWSProtectedHeader(
