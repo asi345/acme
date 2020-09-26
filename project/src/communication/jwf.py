@@ -1,7 +1,9 @@
 import binascii
 import json
 import uuid
+from copy import copy
 from dataclasses import dataclass, field
+from hashlib import sha256
 from typing import List
 
 from cryptography.hazmat.backends import default_backend
@@ -83,6 +85,15 @@ class JWK(JWFBaseClass):
             "n": _b64_encode_bytes(binascii.unhexlify(modulus)).decode("utf-8"),
         }
 
+    def to_thumbprint_json(self) -> str:
+        tmp = dict()
+        # https://tools.ietf.org/html/rfc7638#section-3.2
+        valid_keys = ["e", "kty", "n"]
+        for key, value in self.data.items():
+            if key in valid_keys:
+                tmp.update({key:value})
+        return json.dumps(tmp, sort_keys=True, separators=(",",":"))
+
     def get_key_authorization(self, token: str):
         """
         TODO: As noted in [RFC7518] any prepended zero octets in the fields of a
@@ -91,10 +102,10 @@ class JWK(JWFBaseClass):
         :return:
         """
         hashdigest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-        jws_json = self.to_json()
-        jws_json = jws_json.replace(" ","").replace("\n","")
+        jws_json = self.to_thumbprint_json()
         hashdigest.update(jws_json.encode("utf-8"))
-        jws_hash = hashdigest.finalize()
+        # jws_hash = hashdigest.finalize()
+        jws_hash = sha256(jws_json.encode("utf-8")).digest()
         return f"{token}.{_b64_encode_bytes(jws_hash).decode('utf-8')}"
 
 
@@ -132,13 +143,13 @@ class JWSProtectedHeader(JWFBaseClass):
 
 @dataclass
 class JWSPayload(JWFBaseClass):
-    payload_data: dict = field(default_factory=dict())
+    payload_data: dict = field()
 
     def _to_data(self):
         self.data = self.payload_data
 
     def to_json(self) -> str:
-        if self.payload_data:
+        if self.payload_data is not None:
             return super().to_json()
         else:
             return ""

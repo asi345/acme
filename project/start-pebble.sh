@@ -1,3 +1,3 @@
 #!/usr/bin/zsh
 
-pebble -dnsserver localhost:10053
+pebble -dnsserver 127.0.0.1:10053

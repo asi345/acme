@@ -46,13 +46,14 @@ def main():
     LOGGER.info(f"ACME_SERVER set to {ACME_SERVER}")
 
     client = ACMEClient(server=ACME_SERVER)
-    orders = client.list_orders()
-    print(orders)
-    new_order = client.create_order(args.domain)
-    order = client.get_order(orders[0])
-    authorization_urls = order.authorizations
-    auth = client.get_authorization(authorization_urls[0])
-    challenge = client.get_challenge(auth.challenges[0].url)
+    client.dns_challenge(args.domain)
+    # orders = client.list_orders()
+    # print(orders)
+    # new_order = client.create_order(args.domain)
+    # order = client.get_order(orders[0])
+    # authorization_urls = order.authorizations
+    # auth = client.get_authorization(authorization_urls[0])
+    # challenge = client.get_challenge(auth.challenges[0].url)
 
     # data = json.loads(ro.text)
     # trans.post_as_get(data["authorizations"][0])
@@ -61,5 +62,5 @@ def main():
 
 
 if __name__ == "__main__":
-    _setup_logger(logging.INFO)
+    _setup_logger(logging.DEBUG)
     main()

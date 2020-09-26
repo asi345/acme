@@ -14,7 +14,7 @@ class ACMEBaseClass(ABC):
         pass
 
 
-class ChallengeTypes(Enum):
+class ChallengeType(Enum):
     DNS01 = "dns-01"
     HTTP01 = "http-01"
     TLSALPN01 = "tls-alpn-01"
@@ -28,7 +28,7 @@ class ChallengeStatus(Enum):
 
 @dataclass
 class ACMEChallenge(ACMEBaseClass):
-    type: ChallengeTypes = field()
+    type: ChallengeType = field()
     url: str = field()
     token: str = field()
     status: ChallengeStatus = field()
@@ -38,7 +38,7 @@ class ACMEChallenge(ACMEBaseClass):
         return from_dict(
             data_class=ACMEChallenge,
             data=json.loads(data),
-            config=Config(cast=[ChallengeStatus, ChallengeTypes],),
+            config=Config(cast=[ChallengeStatus, ChallengeType], ),
         )
 
 
@@ -59,11 +59,11 @@ class ACMEOrder(ACMEBaseClass):
             data_class=ACMEOrder,
             data=json.loads(data),
             config=Config(
-                cast=[ChallengeStatus, ChallengeTypes],
+                cast=[ChallengeStatus, ChallengeType],
                 forward_references={
                     "status": ChallengeStatus,
                     "challenges": List[ACMEChallenge],
-                    "type": ChallengeTypes,
+                    "type": ChallengeType,
                 },
             ),
         )
@@ -82,11 +82,11 @@ class ACMEAuthorization(ACMEBaseClass):
             data_class=ACMEAuthorization,
             data=json.loads(data),
             config=Config(
-                cast=[ChallengeStatus, ChallengeTypes],
+                cast=[ChallengeStatus, ChallengeType],
                 forward_references={
                     "status": ChallengeStatus,
                     "challenges": List[ACMEChallenge],
-                    "type": ChallengeTypes,
+                    "type": ChallengeType,
                 },
             ),
         )
