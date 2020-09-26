@@ -9,10 +9,6 @@ from src.utils.utils import ACME_ENDPOINT_ORDER
 
 LOGGER = logging.getLogger("src.main")
 
-ACME_DOMAIN = "pebble"
-ACME_PORT = "14000"
-ACME_SERVER = f"https://{ACME_DOMAIN}:{ACME_PORT}/"
-
 
 def setup_parser():
     parser = argparse.ArgumentParser(prog="acme-client")
@@ -48,24 +44,27 @@ def main():
     p = setup_parser()
     args = p.parse_args()
     print(args)
-    # trans = TransportHelper(ACME_SERVER)
-    # r = trans.post_as_get(url=ACME_SERVER + "list-orderz/1")
-    # ro = trans.post(
-    #     url=ACME_SERVER + ACME_ENDPOINT_ORDER,
-    #     content={
-    #         "identifiers": [
-    #             {"type": "dns", "value": "www.example.org"},
-    #             {"type": "dns", "value": "example.org"},
-    #         ],
-    #         "notBefore": "2016-01-01T00:04:00+04:00",
-    #         "notAfter": "2016-01-08T00:04:00+04:00",
-    #     },
-    # )
-    #
-    # data = json.loads(ro.text)
-    # trans.post_as_get(data["authorizations"][0])
-    # key_auth = trans.jwk.get_key_authorization("123")
-    # print(key_auth)
+
+    ACME_SERVER = args.dir.strip("dir")
+    LOGGER.info(f"ACME_SERVER set to {ACME_SERVER}")
+    trans = TransportHelper(ACME_SERVER)
+    r = trans.post_as_get(url=ACME_SERVER + "list-orderz/1")
+    ro = trans.post(
+        url=ACME_SERVER + ACME_ENDPOINT_ORDER,
+        content={
+            "identifiers": [
+                {"type": "dns", "value": "www.example.org"},
+                {"type": "dns", "value": "example.org"},
+            ],
+            "notBefore": "2016-01-01T00:04:00+04:00",
+            "notAfter": "2016-01-08T00:04:00+04:00",
+        },
+    )
+
+    data = json.loads(ro.text)
+    trans.post_as_get(data["authorizations"][0])
+    key_auth = trans.jwk.get_key_authorization("123")
+    print(key_auth)
 
 
 if __name__ == "__main__":
