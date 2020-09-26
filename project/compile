@@ -1,6 +1,8 @@
 #!/bin/bash
 
-echo "Compile your project here"
+DIRECTORY=$(dirname "$0")
+echo "Changing to ${DIRECTORY}"
+cd  "$DIRECTORY" || exit 1
 
 pwd
 
