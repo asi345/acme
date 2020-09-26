@@ -16,7 +16,7 @@ class ACMEDNS:
         self.resolver = ZoneResolver(textwrap.dedent(zone))
         self.dns_logger = DNSLogger(prefix=False)
         self.server = DNSServer(
-            self.resolver, port=10053, address="172.17.0.2", logger=self.dns_logger
+            self.resolver, port=10053, address="0.0.0.0", logger=self.dns_logger
         )
 
     def start(self):
@@ -31,7 +31,7 @@ class ACMEDNS:
         self.stop()
         self.resolver = ZoneResolver(textwrap.dedent(new_zone))
         self.server = DNSServer(
-            self.resolver, port=10053, address="172.17.0.2", logger=self.dns_logger
+            self.resolver, port=10053, address="0.0.0.0", logger=self.dns_logger
         )
         self.start()
 
