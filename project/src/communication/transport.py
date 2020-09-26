@@ -123,6 +123,9 @@ class TransportHelper:
             if retry_count >= 3:
                 raise ConnectionError(f"Max retries exceeded for {url}")
 
+            if r.status_code == 404:
+                raise ConnectionError(f"404 Page not found for {url}")
+
             r_content = json.loads(r.text)
             if r_content["type"] == BAD_NONCE_RESPONSE:
                 # retry request once
