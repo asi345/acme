@@ -1,11 +1,11 @@
 import argparse
-import json
 import logging
 
+from src.client.client import ACMEClient
+from src.client.structs import ACMEOrder
 from src.communication.transport import TransportHelper
 from src.logger import _setup_logger
-from src.utils.utils import ACME_ENDPOINT_ORDER
-
+from src.utils.utils import ACME_ENDPOINT_NEW_ORDER
 
 LOGGER = logging.getLogger("src.main")
 
@@ -47,26 +47,22 @@ def main():
 
     ACME_SERVER = args.dir.strip("dir")
     LOGGER.info(f"ACME_SERVER set to {ACME_SERVER}")
-    trans = TransportHelper(ACME_SERVER)
-    r = trans.post_as_get(url=ACME_SERVER + "list-orderz/1")
-    ro = trans.post(
-        url=ACME_SERVER + ACME_ENDPOINT_ORDER,
-        content={
-            "identifiers": [
-                {"type": "dns", "value": "www.example.org"},
-                {"type": "dns", "value": "example.org"},
-            ],
-            "notBefore": "2016-01-01T00:04:00+04:00",
-            "notAfter": "2016-01-08T00:04:00+04:00",
-        },
-    )
 
-    data = json.loads(ro.text)
-    trans.post_as_get(data["authorizations"][0])
-    key_auth = trans.jwk.get_key_authorization("123")
-    print(key_auth)
+    client = ACMEClient(server=ACME_SERVER)
+    orders = client.list_orders()
+    print(orders)
+    new_order = client.create_order(args.domain)
+    order = client.get_order(orders[0])
+    authorization_urls = order.authorizations
+    auth = client.get_authorization(authorization_urls[0])
+    challenge = client.get_challenge(auth.challenges[0].url)
+
+    # data = json.loads(ro.text)
+    # trans.post_as_get(data["authorizations"][0])
+    # key_auth = trans.jwk.get_key_authorization("123")
+    # print(key_auth)
 
 
 if __name__ == "__main__":
-    _setup_logger(logging.DEBUG)
+    _setup_logger(logging.INFO)
     main()
