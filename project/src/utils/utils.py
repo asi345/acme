@@ -16,11 +16,13 @@ LOG_DIR = SRC_DIR / "logs"
 
 ACME_ENDPOINT_NONCE = "nonce-plz"
 ACME_ENDPOINT_REGISTER = "sign-me-up"
-ACME_ENDPOINT_ORDER = "order-plz"
+ACME_ENDPOINT_NEW_ORDER = "order-plz"
 ACME_ENDPOINT_REVOKE = "revoke-cert"
 ACME_ENDPOINT_KEY_CHANGE = "rollover-account-key"
 ACME_ENDPOINT_ACCOUNT = "my-account"
 ACME_ENDPOINT_LIST_ORDER = "list-orderz"
+ACME_ENDPOINT_ORDER = "my-order"
+ACME_ENDPOINT_CHALLENGE = "chalZ"
 
 
 def _b64_encode_bytes(data: bytes, drop_padding=True) -> bytes:
