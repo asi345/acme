@@ -48,9 +48,10 @@ class ACMEOrder(ACMEBaseClass):
     expires: str = field()
     identifiers: List[Dict] = field()
     finalize: str = field()
-    notBefore: str = field()
-    notAfter: str = field()
-    authorizations: List[str]
+    authorizations: List[str] = field()
+    wildcard: bool = field(default=False)
+    notBefore: str = field(default=None)
+    notAfter: str = field(default=None)
 
     @staticmethod
     def from_json(data: str) -> "ACMEBaseClass":
