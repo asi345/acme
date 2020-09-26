@@ -2,16 +2,17 @@ import base64
 import logging
 from pathlib import Path
 
-import requests
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
+from cryptography.hazmat.primitives.asymmetric.rsa import \
+    RSAPrivateKeyWithSerialization
 
 LOGGER = logging.getLogger(__name__)
 
 SRC_DIR = Path(__file__).parent.parent.parent.resolve()
 DATA_DIR = SRC_DIR / "data"
+LOG_DIR = SRC_DIR / "logs"
 
 ACME_ENDPOINT_NONCE = "nonce-plz"
 ACME_ENDPOINT_REGISTER = "sign-me-up"

@@ -4,23 +4,19 @@ from typing import Optional, Dict
 
 import requests
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
-from requests import Response
+from requests import Response, HTTPError
 
-from src.client.jwf import JWK, JWSProtectedHeader, JWSPayload, JWSBody
+from src.communication.jwf import JWSProtectedHeader, JWK, JWSPayload, JWSBody
+from src.utils.exceptions import BAD_NONCE_RESPONSE
 from src.utils.utils import (
-    ACME_ENDPOINT_REGISTER,
-    SRC_DIR,
-    get_private_key,
     ACME_ENDPOINT_NONCE,
-    ACME_ENDPOINT_ORDER,
+    ACME_ENDPOINT_REGISTER,
+    get_private_key,
+    SRC_DIR,
 )
 
+
 LOGGER = logging.getLogger(__name__)
-
-
-ACME_DOMAIN = "localhost"
-ACME_PORT = "14000"
-ACME_SERVER = f"https://{ACME_DOMAIN}:{ACME_PORT}/"
 
 
 class TransportHelper:
@@ -81,12 +77,14 @@ class TransportHelper:
             ),
             headers=header,
         )
-        print(r.status_code)
-        print(r.headers)
-        print(r.content.decode("utf-8"))
-        r.raise_for_status()
+        LOGGER.debug(f"Status code for {url} is {r.status_code}")
+        LOGGER.debug(f"Headers: {r.headers}")
+        LOGGER.debug(f"Content: {r.text}")
 
-        self.last_nonces.add(r.headers["Replay-Nonce"])
+        if "Replay-Nonce" in r.headers:
+            new_nonce = r.headers["Replay-Nonce"]
+            LOGGER.debug(f"New nonce from response: {new_nonce}")
+            self.last_nonces.add(new_nonce)
 
         return r
 
@@ -100,6 +98,7 @@ class TransportHelper:
         url: str,
         content: Optional[Dict],
         protected_header_override: JWSProtectedHeader = None,
+        retry_count: int = 0,
     ) -> Response:
         """
         Create valid ACME post request content consisting of protected header,
@@ -116,11 +115,27 @@ class TransportHelper:
 
         payload = JWSPayload(content)
         body = JWSBody(proteced_header, payload)
-        print(body.to_json())
-        return self._post(url, *body.get_request_elements())
+        try:
+            r = self._post(url, *body.get_request_elements())
+            r.raise_for_status()
+            return r
+        except HTTPError as e:
+            if retry_count >= 3:
+                raise ConnectionError(f"Max retries exceeded for {url}")
 
-    def get(self):
-        pass
+            r_content = json.loads(r.text)
+            if r_content["type"] == BAD_NONCE_RESPONSE:
+                # retry request once
+                error_nonce = r.headers["Replay-Nonce"]
+                LOGGER.debug(
+                    f"Error due to wrong nonce. Retrying with nonce from response: {error_nonce}"
+                )
+                proteced_header.nonce = error_nonce
+                LOGGER.warning(f"Request for {url} retrying now...")
+                return self.post(url, content, proteced_header, retry_count + 1)
+
+    def get(self, url: str) -> Response:
+        return self.session.get(url)
 
     def post_as_get(
         self, url: str, protected_header_override: JWSProtectedHeader = None
@@ -133,26 +148,12 @@ class TransportHelper:
         assert self.server.endswith("/")
         r = self.session.get(self.server + ACME_ENDPOINT_NONCE)
         r.raise_for_status()
-        self.last_nonces.add(r.headers["Replay-Nonce"])
+        nonce = r.headers["Replay-Nonce"]
+        LOGGER.debug(f"Nonce received: {nonce}")
+        self.last_nonces.add(nonce)
 
     @property
     def nonce(self):
         if not self.last_nonces:
             self._get_nonce()
         return self.last_nonces.pop()
-
-
-if __name__ == "__main__":
-    trans = TransportHelper(ACME_SERVER)
-    r = trans.post_as_get(url="https://localhost:14000/list-orderz/1")
-    ro = trans.post(
-        url=ACME_SERVER + ACME_ENDPOINT_ORDER,
-        content={
-            "identifiers": [
-                {"type": "dns", "value": "www.example.org"},
-                {"type": "dns", "value": "example.org"},
-            ],
-            "notBefore": "2016-01-01T00:04:00+04:00",
-            "notAfter": "2016-01-08T00:04:00+04:00",
-        },
-    )
