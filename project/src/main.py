@@ -2,10 +2,7 @@ import argparse
 import logging
 
 from src.client.client import ACMEClient
-from src.client.structs import ACMEOrder
-from src.communication.transport import TransportHelper
 from src.logger import _setup_logger
-from src.utils.utils import ACME_ENDPOINT_NEW_ORDER
 
 LOGGER = logging.getLogger("src.main")
 
