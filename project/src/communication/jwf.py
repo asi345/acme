@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import List
 
+from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import (
@@ -75,12 +76,26 @@ class JWK(JWFBaseClass):
             modulus = f"0{modulus}"
 
         self.data = {
-            "kty": self.key_type,
-            "n": _b64_encode_bytes(binascii.unhexlify(modulus)).decode("utf-8"),
+            "alg": self.algorithm,
             "e": _b64_encode_bytes(binascii.unhexlify(exponent)).decode("utf-8"),
             "kid": self.kid,
-            "alg": self.algorithm,
+            "kty": self.key_type,
+            "n": _b64_encode_bytes(binascii.unhexlify(modulus)).decode("utf-8"),
         }
+
+    def get_key_authorization(self, token: str):
+        """
+        TODO: As noted in [RFC7518] any prepended zero octets in the fields of a
+        JWK object MUST be stripped before doing the computation.
+        :param token:
+        :return:
+        """
+        hashdigest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+        jws_json = self.to_json()
+        jws_json = jws_json.replace(" ","").replace("\n","")
+        hashdigest.update(jws_json.encode("utf-8"))
+        jws_hash = hashdigest.finalize()
+        return f"{token}.{_b64_encode_bytes(jws_hash).decode('utf-8')}"
 
 
 @dataclass
@@ -126,7 +141,8 @@ class JWSPayload(JWFBaseClass):
         if self.payload_data:
             return super().to_json()
         else:
-            return ''
+            return ""
+
 
 @dataclass
 class JWSBody(JWFBaseClass):

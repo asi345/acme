@@ -1,3 +1,4 @@
+import json
 import logging
 
 from src.communication.transport import TransportHelper
@@ -26,6 +27,11 @@ def main():
             "notAfter": "2016-01-08T00:04:00+04:00",
         },
     )
+
+    data = json.loads(ro.text)
+    trans.post_as_get(data["authorizations"][0])
+    key_auth = trans.jwk.get_key_authorization("123")
+    print(key_auth)
 
 
 
