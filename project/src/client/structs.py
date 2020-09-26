@@ -90,3 +90,20 @@ class ACMEAuthorization(ACMEBaseClass):
                 },
             ),
         )
+
+
+@dataclass
+class ACMEAccount(ACMEBaseClass):
+    status: ChallengeStatus = field()
+    contact: List[str] = field()
+    orders: str = field()
+
+    @staticmethod
+    def from_json(data: str) -> "ACMEAccount":
+        return from_dict(
+            data_class=ACMEAccount,
+            data=json.loads(data),
+            config=Config(
+                cast=[ChallengeStatus], forward_references={"status": ChallengeStatus,},
+            ),
+        )
