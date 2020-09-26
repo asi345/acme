@@ -8,14 +8,14 @@ from src.utils.utils import ACME_ENDPOINT_ORDER
 
 LOGGER = logging.getLogger("src.main")
 
-ACME_DOMAIN = "localhost"
+ACME_DOMAIN = "pebble"
 ACME_PORT = "14000"
 ACME_SERVER = f"https://{ACME_DOMAIN}:{ACME_PORT}/"
 
 
 def main():
     trans = TransportHelper(ACME_SERVER)
-    r = trans.post_as_get(url="https://localhost:14000/list-orderz/1")
+    r = trans.post_as_get(url=ACME_SERVER + "list-orderz/1")
     ro = trans.post(
         url=ACME_SERVER + ACME_ENDPOINT_ORDER,
         content={
