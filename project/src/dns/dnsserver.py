@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 from dnslib import DNSRecord, textwrap
 from dnslib.server import DNSLogger, DNSServer
@@ -31,16 +31,20 @@ class ACMEDNS:
         self.start()
 
 
-def build_zones(domains: List[str], record: str):
-    pass
+def build_dns_challenge_zones(domains: List[Tuple[str, str]],):
+    zone = "\n".join([f'{domain}. 60 TXT "{key_auth}"' for domain, key_auth in domains])
+    print(zone)
+    return zone
+
+
+def build_http_challenge_zones(domains: List[str], record: str):
+    zone = "\n".join([f"{domain}. 60 A {record}" for domain in domains])
+    print(zone)
+    return zone
 
 
 def test():
-    zone1 = """
-    abc.def. 60 A 1.2.3.4
-    abc.com. 60 A 1.2.3.4
-    abc.com. 60 TXT "TEST1"
-    """
+    zone1 = build_http_challenge_zones(["abc.com", "test.com"], record="1.2.3.4")
 
     s = ACMEDNS(zone1)
     s.start()
@@ -48,13 +52,11 @@ def test():
     a = q.send("localhost", 10053)
     print(DNSRecord.parse(a))
 
-    zone2 = """
-            abc.def. 60 A 4.5.6.7
-            abc.com. 60 A 4.5.6.7
-            abc.com. 60 TXT "TEST2"
-            """
+    zone2 = build_dns_challenge_zones(
+        [("abc.com", "TEST_TOKEN1"), ("test.com", "TEST_TOKEN2")]
+    )
     s.update_zone(zone2)
-    q = DNSRecord.question("abc.com", qtype="A")
+    q = DNSRecord.question("abc.com", qtype="TXT")
     a = q.send("localhost", 10053)
     print(DNSRecord.parse(a))
 
