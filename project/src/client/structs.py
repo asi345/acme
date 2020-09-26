@@ -34,7 +34,7 @@ class ACMEChallenge(ACMEBaseClass):
     status: ChallengeStatus = field()
 
     @staticmethod
-    def from_json(data: str) -> "ACMEBaseClass":
+    def from_json(data: str) -> "ACMEChallenge":
         return from_dict(
             data_class=ACMEChallenge,
             data=json.loads(data),
@@ -54,7 +54,7 @@ class ACMEOrder(ACMEBaseClass):
     notAfter: str = field(default=None)
 
     @staticmethod
-    def from_json(data: str) -> "ACMEBaseClass":
+    def from_json(data: str) -> "ACMEOrder":
         return from_dict(
             data_class=ACMEOrder,
             data=json.loads(data),
@@ -77,7 +77,7 @@ class ACMEAuthorization(ACMEBaseClass):
     expires: str = field()
 
     @staticmethod
-    def from_json(data: str) -> "ACMEBaseClass":
+    def from_json(data: str) -> "ACMEAuthorization":
         return from_dict(
             data_class=ACMEAuthorization,
             data=json.loads(data),
