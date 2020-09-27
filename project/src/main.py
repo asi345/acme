@@ -1,8 +1,10 @@
 import argparse
 import logging
+import threading
 
 from src.client.client import ACMEClient
 from src.httpservers.certdemoserver import start_demo_server
+from src.httpservers.shutdownserver import start_shutdown_server
 from src.logger import _setup_logger
 from src.utils.utils import get_private_key, CERT_DIR, PRIVATE_KEY_DIR
 from django.utils.text import slugify
@@ -57,11 +59,16 @@ def main():
     b64_csr = client.create_csr(args.domain, key=cert_key)
     finalized_order = client.finalize(ready_order, b64_csr)
     cert_path = client.download_cert(finalized_order, slugify(ready_order.url_id))
-    start_demo_server(
-        cert_path=str(cert_path),
-        key_path=str(key_path),
-    )
-    print()
+    shutdown_thread = threading.Thread(target=start_shutdown_server)
+    demo_thread = threading.Thread(target=start_demo_server, args=(cert_path, key_path))
+
+    shutdown_thread.start()
+    demo_thread.start()
+
+    demo_thread.join()
+    shutdown_thread.join()
+
+
     # orders = client.list_orders()
     # print(orders)
     # new_order = client.create_order(args.domain)
