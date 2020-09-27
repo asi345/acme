@@ -12,7 +12,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ACMEDNS:
-    def __init__(self, zone):
+    def __init__(self, zone: str = ""):
+        LOGGER.debug(f"DNS Server received zones: \n {zone}")
         self.resolver = ZoneResolver(textwrap.dedent(zone))
         self.dns_logger = DNSLogger(prefix=False)
         self.server = DNSServer(
@@ -25,9 +26,10 @@ class ACMEDNS:
 
     def stop(self):
         LOGGER.info("Stopping DNS server...")
-        self.server.stop()
+        self.server.server.server_close()
 
     def update_zone(self, new_zone: str):
+        LOGGER.debug(f"Updating DNS with new zone:\n {new_zone}")
         self.stop()
         self.resolver = ZoneResolver(textwrap.dedent(new_zone))
         self.server = DNSServer(

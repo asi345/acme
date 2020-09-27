@@ -10,7 +10,7 @@ from dacite import from_dict, Config
 class ACMEBaseClass(ABC):
     @staticmethod
     @abstractmethod
-    def from_json(data: str) -> "ACMEBaseClass":
+    def from_json(data: Dict) -> "ACMEBaseClass":
         pass
 
 
@@ -26,6 +26,14 @@ class ChallengeStatus(Enum):
     INVALID = "invalid"
 
 
+class OrderStatus(Enum):
+    PENDING = "pending"
+    VALID = "valid"
+    INVALID = "invalid"
+    READY = "ready"
+    PROCESSING = "processing"
+
+
 @dataclass
 class ACMEChallenge(ACMEBaseClass):
     type: ChallengeType = field()
@@ -34,17 +42,18 @@ class ACMEChallenge(ACMEBaseClass):
     status: ChallengeStatus = field()
 
     @staticmethod
-    def from_json(data: str) -> "ACMEChallenge":
+    def from_json(data: Dict) -> "ACMEChallenge":
         return from_dict(
             data_class=ACMEChallenge,
-            data=json.loads(data),
-            config=Config(cast=[ChallengeStatus, ChallengeType], ),
+            data=data,
+            config=Config(cast=[ChallengeStatus, ChallengeType],),
         )
 
 
 @dataclass()
 class ACMEOrder(ACMEBaseClass):
-    status: ChallengeStatus = field()
+    url_id: str = field()
+    status: OrderStatus = field()
     expires: str = field()
     identifiers: List[Dict] = field()
     finalize: str = field()
@@ -54,14 +63,14 @@ class ACMEOrder(ACMEBaseClass):
     notAfter: str = field(default=None)
 
     @staticmethod
-    def from_json(data: str) -> "ACMEOrder":
+    def from_json(data: Dict) -> "ACMEOrder":
         return from_dict(
             data_class=ACMEOrder,
-            data=json.loads(data),
+            data=data,
             config=Config(
-                cast=[ChallengeStatus, ChallengeType],
+                cast=[OrderStatus, ChallengeType],
                 forward_references={
-                    "status": ChallengeStatus,
+                    "status": OrderStatus,
                     "challenges": List[ACMEChallenge],
                     "type": ChallengeType,
                 },
@@ -71,16 +80,17 @@ class ACMEOrder(ACMEBaseClass):
 
 @dataclass
 class ACMEAuthorization(ACMEBaseClass):
+    url_id: str = field()
     status: ChallengeStatus = field()
     identifier: dict = field()
     challenges: List[ACMEChallenge] = field()
     expires: str = field()
 
     @staticmethod
-    def from_json(data: str) -> "ACMEAuthorization":
+    def from_json(data: Dict) -> "ACMEAuthorization":
         return from_dict(
             data_class=ACMEAuthorization,
-            data=json.loads(data),
+            data=data,
             config=Config(
                 cast=[ChallengeStatus, ChallengeType],
                 forward_references={
@@ -94,15 +104,16 @@ class ACMEAuthorization(ACMEBaseClass):
 
 @dataclass
 class ACMEAccount(ACMEBaseClass):
+    url_id: str = field()
     status: ChallengeStatus = field()
     contact: List[str] = field()
     orders: str = field()
 
     @staticmethod
-    def from_json(data: str) -> "ACMEAccount":
+    def from_json(data: Dict) -> "ACMEAccount":
         return from_dict(
             data_class=ACMEAccount,
-            data=json.loads(data),
+            data=data,
             config=Config(
                 cast=[ChallengeStatus], forward_references={"status": ChallengeStatus,},
             ),

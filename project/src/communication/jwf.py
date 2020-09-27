@@ -101,10 +101,7 @@ class JWK(JWFBaseClass):
         :param token:
         :return:
         """
-        hashdigest = hashes.Hash(hashes.SHA256(), backend=default_backend())
         jws_json = self.to_thumbprint_json()
-        hashdigest.update(jws_json.encode("utf-8"))
-        # jws_hash = hashdigest.finalize()
         jws_hash = sha256(jws_json.encode("utf-8")).digest()
         return f"{token}.{_b64_encode_bytes(jws_hash).decode('utf-8')}"
 

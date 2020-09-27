@@ -46,7 +46,10 @@ def main():
     LOGGER.info(f"ACME_SERVER set to {ACME_SERVER}")
 
     client = ACMEClient(server=ACME_SERVER)
-    client.dns_challenge(args.domain)
+    orders = client.list_orders()
+    for order in orders:
+        LOGGER.info(client.get_order(order))
+    ready_order = client.dns_challenge(args.domain)
     # orders = client.list_orders()
     # print(orders)
     # new_order = client.create_order(args.domain)
