@@ -9,4 +9,4 @@ def hello():
 
 
 def start_demo_server(cert_path, key_path):
-    app.run(ssl_context=(cert_path, key_path), port=5001)
+    app.run(host="0.0.0.0",ssl_context=(cert_path, key_path), port=5001)
