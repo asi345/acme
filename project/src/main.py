@@ -65,7 +65,7 @@ def main():
     dnsserver.start()
 
     shutdown_thread = threading.Thread(target=start_shutdown_server)
-    demo_thread = threading.Thread(target=start_demo_server, args=(cert_path, key_path, args.domain[0]))
+    demo_thread = threading.Thread(target=start_demo_server, args=(cert_path, key_path))
 
     shutdown_thread.start()
     demo_thread.start()
