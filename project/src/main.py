@@ -3,6 +3,7 @@ import logging
 import threading
 
 from src.client.client import ACMEClient
+from src.dns.dnsserver import ACMEDNS, build_http_challenge_zones
 from src.httpservers.certdemoserver import start_demo_server
 from src.httpservers.shutdownserver import start_shutdown_server
 from src.logger import _setup_logger
@@ -59,6 +60,10 @@ def main():
     b64_csr = client.create_csr(args.domain, key=cert_key)
     finalized_order = client.finalize(ready_order, b64_csr)
     cert_path = client.download_cert(finalized_order, slugify(ready_order.url_id))
+
+    dnsserver = ACMEDNS(build_http_challenge_zones(args.domain, args.record))
+    dnsserver.start()
+
     shutdown_thread = threading.Thread(target=start_shutdown_server)
     demo_thread = threading.Thread(target=start_demo_server, args=(cert_path, key_path))
 
