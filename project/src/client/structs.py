@@ -61,6 +61,7 @@ class ACMEOrder(ACMEBaseClass):
     wildcard: bool = field(default=False)
     notBefore: str = field(default=None)
     notAfter: str = field(default=None)
+    certificate: str = field(default=None)
 
     @staticmethod
     def from_json(data: Dict) -> "ACMEOrder":

@@ -15,5 +15,6 @@ setup(
         "requests==2.24.0",
         "pycryptodome==3.9.8",
         "dacite==1.5.1",
+        "Django==3.1.1"
     ],
 )

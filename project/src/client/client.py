@@ -1,9 +1,15 @@
 import json
 import logging
 from hashlib import sha256
+from pathlib import Path
 from time import sleep
 from typing import List, Optional, Dict
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
+from cryptography.x509.oid import NameOID
 from dnslib import DNSRecord
 from requests import Response
 
@@ -12,13 +18,13 @@ from src.client.structs import (
     ACMEAccount,
     ACMEAuthorization,
     ACMEChallenge,
-    ChallengeType,
+    ChallengeType, OrderStatus,
 )
 from src.communication.transport import TransportHelper
 from src.dns.dnsserver import build_dns_challenge_zones, ACMEDNS
 from src.utils.utils import (
     ACME_ENDPOINT_NEW_ORDER,
-    _b64_encode_bytes,
+    _b64_encode_bytes, CERT_DIR, write_certfile,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -75,6 +81,37 @@ class ACMEClient:
         challenge = self.get_challenge(url)
         return challenge.status
 
+    def create_csr(
+        self, domains: List[str], key: RSAPrivateKeyWithSerialization
+    ) -> str:
+        csr = (
+            x509.CertificateSigningRequestBuilder()
+            .subject_name(
+                x509.Name(
+                    [
+                        x509.NameAttribute(NameOID.COUNTRY_NAME, "CH"),
+                        x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Zurich"),
+                        x509.NameAttribute(NameOID.LOCALITY_NAME, "Zurich"),
+                        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "NetSec ETHZ"),
+                        # x509.NameAttribute(NameOID.COMMON_NAME, u"mysite.com"),
+                    ]
+                )
+            )
+            .add_extension(
+                x509.SubjectAlternativeName(
+                    [x509.DNSName(domain) for domain in domains]
+                ),
+                critical=False,
+            )
+            .sign(key, hashes.SHA256(), backend=default_backend(),)
+        )
+
+        s = _b64_encode_bytes(
+            csr.public_bytes(encoding=serialization.Encoding.DER)
+        ).decode("utf-8")
+
+        return s
+
     def dns_challenge(self, domains: List[str]) -> ACMEOrder:
         order = self.create_order(domains)
         self.dns = ACMEDNS()
@@ -107,3 +144,22 @@ class ACMEClient:
         self.dns.stop()
         # update order object and return
         return self.get_order(order.url_id)
+
+    def finalize(self, order: ACMEOrder, b64_csr: str) -> ACMEOrder:
+        resp = self.transport.post(url=order.finalize, content={"csr": b64_csr})
+        LOGGER.debug(resp.text)
+        resp.url = resp.headers["Location"]
+        return ACMEOrder.from_json(ACMEClient._process_response(resp))
+
+    def download_cert(self, order:ACMEOrder, cert_filename: str) -> Path:
+        for _ in range(3):
+            order = self.get_order(order.url_id)
+            if order.status == OrderStatus.VALID:
+                break
+            else:
+                # wait until the server is ready
+                sleep(2)
+        resp = self.transport.post_as_get(url=order.certificate)
+        LOGGER.debug(resp.text)
+
+        return write_certfile(resp.content, filename=cert_filename)

@@ -31,7 +31,7 @@ class TransportHelper:
         if private_key:
             self.private_key = private_key
         else:
-            self.private_key = get_private_key()
+            self.private_key, self.private_key_path = get_private_key()
         self.jwk = None
         self.kid = "2"  # TODO: replace with uuid
 

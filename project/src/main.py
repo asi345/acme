@@ -2,7 +2,10 @@ import argparse
 import logging
 
 from src.client.client import ACMEClient
+from src.httpservers.certdemoserver import start_demo_server
 from src.logger import _setup_logger
+from src.utils.utils import get_private_key, CERT_DIR, PRIVATE_KEY_DIR
+from django.utils.text import slugify
 
 LOGGER = logging.getLogger("src.main")
 
@@ -50,6 +53,15 @@ def main():
     for order in orders:
         LOGGER.info(client.get_order(order))
     ready_order = client.dns_challenge(args.domain)
+    cert_key, key_path = get_private_key(force_new=True, filename=slugify(ready_order.url_id))
+    b64_csr = client.create_csr(args.domain, key=cert_key)
+    finalized_order = client.finalize(ready_order, b64_csr)
+    cert_path = client.download_cert(finalized_order, slugify(ready_order.url_id))
+    start_demo_server(
+        cert_path=str(cert_path),
+        key_path=str(key_path),
+    )
+    print()
     # orders = client.list_orders()
     # print(orders)
     # new_order = client.create_order(args.domain)
