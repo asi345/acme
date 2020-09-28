@@ -16,6 +16,7 @@ PRIVATE_KEY_DIR = DATA_DIR / "priv"
 CERT_DIR = DATA_DIR / "cert"
 LOG_DIR = SRC_DIR / "logs"
 
+ACME_ENDPOINT_DIR = "dir"
 ACME_ENDPOINT_NONCE = "nonce-plz"
 ACME_ENDPOINT_REGISTER = "sign-me-up"
 ACME_ENDPOINT_NEW_ORDER = "order-plz"

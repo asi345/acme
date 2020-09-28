@@ -5,6 +5,7 @@ from typing import Optional, Dict
 import requests
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
 from requests import Response, HTTPError
+from requests.exceptions import SSLError
 
 from src.communication.jwf import JWSProtectedHeader, JWK, JWSPayload, JWSBody
 from src.utils.exceptions import BAD_NONCE_RESPONSE
@@ -12,7 +13,7 @@ from src.utils.utils import (
     ACME_ENDPOINT_NONCE,
     ACME_ENDPOINT_REGISTER,
     get_private_key,
-    SRC_DIR,
+    SRC_DIR, ACME_ENDPOINT_DIR,
 )
 
 
@@ -36,7 +37,18 @@ class TransportHelper:
         self.kid = "2"  # TODO: replace with uuid
 
         LOGGER.info("Registering for new ACME account.")
+        self._verify_server_cert()
         self._register()
+
+    def _verify_server_cert(self):
+        LOGGER.info("Verifying ACME server certificate...")
+        try:
+            resp = self.get(url=self.server + ACME_ENDPOINT_DIR)
+            LOGGER.debug(resp.text)
+        except SSLError as e:
+            LOGGER.critical(f"SSL Verification for {self.server} failed. Terminating...")
+            exit(0)
+
 
     def _register(self):
         if not self.account_url:
