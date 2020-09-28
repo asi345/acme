@@ -56,7 +56,13 @@ def main():
     orders = client.list_orders()
     for order in orders:
         LOGGER.info(client.get_order(order))
-    ready_order = client.dns_challenge(args.domain)
+    if args.challenge == "dns01":
+        ready_order = client.dns_challenge(args.domain)
+    elif args.challenge == "http01":
+        ready_order = client.http_challenge(args.domain, args.record)
+    else:
+        raise ValueError("Invalid challenge type. (How did you trick argparse?)")
+
     cert_key, key_path = get_private_key(
         force_new=True, filename=slugify(ready_order.url_id)
     )
@@ -78,19 +84,6 @@ def main():
 
     demo_thread.join()
     shutdown_thread.join()
-
-    # orders = client.list_orders()
-    # print(orders)
-    # new_order = client.create_order(args.domain)
-    # order = client.get_order(orders[0])
-    # authorization_urls = order.authorizations
-    # auth = client.get_authorization(authorization_urls[0])
-    # challenge = client.get_challenge(auth.challenges[0].url)
-
-    # data = json.loads(ro.text)
-    # trans.post_as_get(data["authorizations"][0])
-    # key_auth = trans.jwk.get_key_authorization("123")
-    # print(key_auth)
 
 
 if __name__ == "__main__":

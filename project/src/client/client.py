@@ -1,15 +1,15 @@
 import json
 import logging
+import threading
 from hashlib import sha256
 from pathlib import Path
 from time import sleep
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import \
-    RSAPrivateKeyWithSerialization
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
 from cryptography.x509.oid import NameOID
 from requests import Response
 
@@ -22,7 +22,12 @@ from src.client.structs import (
     OrderStatus,
 )
 from src.communication.transport import TransportHelper
-from src.dns.dnsserver import build_dns_challenge_zones, ACMEDNS
+from src.dns.dnsserver import (
+    build_dns_challenge_zones,
+    ACMEDNS,
+    build_http_challenge_zones,
+)
+from src.httpservers.httpchallengeserver import start_challenge_server
 from src.utils.utils import (
     ACME_ENDPOINT_NEW_ORDER,
     _b64_encode_bytes,
@@ -142,6 +147,45 @@ class ACMEClient:
                     LOGGER.info(
                         f"Challenge status for {domain}:{self.get_challenge_status(chal.url)}"
                     )
+
+        # stop DNS server after challenges were performed
+        self.dns.stop()
+        # update order object and return
+        return self.get_order(order.url_id)
+
+    def http_challenge(self, domains: List[str], record: str) -> ACMEOrder:
+        order = self.create_order(domains)
+        dns_zone = build_http_challenge_zones(domains, record)
+        self.dns = ACMEDNS(dns_zone)
+        self.dns.start()
+
+        tokens = dict() # type: Dict[str, Dict[str, str]]
+        for auth in order.authorizations:
+            # we need to fulfill all authorizations here
+            authorization = self.get_authorization(auth)
+            domain = authorization.identifier["value"]
+            for chal in authorization.challenges:
+                if chal.type == ChallengeType.HTTP01:
+                    key_auth = self.transport.jwk.get_key_authorization(chal.token)
+                    tokens.update({chal.url: {chal.token: key_auth}})
+
+        if tokens:
+            challenge_thread = threading.Thread(
+                target=start_challenge_server,
+                args=("0.0.0.0", list(tokens.values()))
+            )
+            challenge_thread.start()
+
+            for challenge_url in tokens.keys():
+                # notify ACME server that HTTP is ready
+                self.transport.post(url=challenge_url, content={})
+                sleep(5)
+                LOGGER.info(
+                    f"Challenge status for {challenge_url}:{self.get_challenge_status(challenge_url)}"
+                )
+        else:
+            raise Exception("No challenges found")
+
 
         # stop DNS server after challenges were performed
         self.dns.stop()
