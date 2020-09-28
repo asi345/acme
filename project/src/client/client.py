@@ -8,9 +8,9 @@ from typing import List, Optional, Dict
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKeyWithSerialization
+from cryptography.hazmat.primitives.asymmetric.rsa import \
+    RSAPrivateKeyWithSerialization
 from cryptography.x509.oid import NameOID
-from dnslib import DNSRecord
 from requests import Response
 
 from src.client.structs import (
@@ -18,13 +18,16 @@ from src.client.structs import (
     ACMEAccount,
     ACMEAuthorization,
     ACMEChallenge,
-    ChallengeType, OrderStatus,
+    ChallengeType,
+    OrderStatus,
 )
 from src.communication.transport import TransportHelper
 from src.dns.dnsserver import build_dns_challenge_zones, ACMEDNS
 from src.utils.utils import (
     ACME_ENDPOINT_NEW_ORDER,
-    _b64_encode_bytes, CERT_DIR, write_certfile,
+    _b64_encode_bytes,
+    write_certfile,
+    ACME_ENDPOINT_REVOKE,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -151,7 +154,7 @@ class ACMEClient:
         resp.url = resp.headers["Location"]
         return ACMEOrder.from_json(ACMEClient._process_response(resp))
 
-    def download_cert(self, order:ACMEOrder, cert_filename: str) -> Path:
+    def download_cert(self, order: ACMEOrder, cert_filename: str) -> Path:
         for _ in range(3):
             order = self.get_order(order.url_id)
             if order.status == OrderStatus.VALID:
@@ -163,3 +166,17 @@ class ACMEClient:
         LOGGER.debug(resp.text)
 
         return write_certfile(resp.content, filename=cert_filename)
+
+    def revoke_cert(self, cert_path: Path):
+        cert = x509.load_pem_x509_certificate(
+            cert_path.open("rb").read(), backend=default_backend()
+        )
+        LOGGER.debug("Sending revoke request certificate...")
+        resp = self.transport.post(
+            self.server + ACME_ENDPOINT_REVOKE,
+            content={
+                "certificate": _b64_encode_bytes(
+                    cert.public_bytes(serialization.Encoding.DER)
+                ).decode("utf-8")
+            },
+        )
