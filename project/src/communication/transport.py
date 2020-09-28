@@ -13,7 +13,8 @@ from src.utils.utils import (
     ACME_ENDPOINT_NONCE,
     ACME_ENDPOINT_REGISTER,
     get_private_key,
-    SRC_DIR, ACME_ENDPOINT_DIR,
+    SRC_DIR,
+    ACME_ENDPOINT_DIR,
 )
 
 
@@ -46,9 +47,10 @@ class TransportHelper:
             resp = self.get(url=self.server + ACME_ENDPOINT_DIR)
             LOGGER.debug(resp.text)
         except SSLError as e:
-            LOGGER.critical(f"SSL Verification for {self.server} failed. Terminating...")
+            LOGGER.critical(
+                f"SSL Verification for {self.server} failed. Terminating..."
+            )
             exit(0)
-
 
     def _register(self):
         if not self.account_url:
