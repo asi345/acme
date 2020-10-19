@@ -103,6 +103,6 @@ give-score:
 report-score:
   stage: evaluate
   needs: 
-    - give-score
+    - "give-score"
   script:
     - "python report-score.py"
