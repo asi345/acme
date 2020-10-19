@@ -104,9 +104,9 @@ give-score:
 report-score:
   stage: report
   image: registry.inf.ethz.ch/netsec-courses-2020/evaluator:latest
-  # needs: 
-  #   - "give-score"
+  needs: 
+    - "give-score"
   before_script:
-    - ls -lah project
+    - ls -lah
   script:
     - "python report-score.py"
