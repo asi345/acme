@@ -1,7 +1,7 @@
 stages:
+  - report
   - test
   - evaluate
-  - report
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -103,10 +103,10 @@ give-score:
 
 report-score:
   stage: report
-  needs: 
-    - "give-score"
+  image: registry.inf.ethz.ch/netsec-courses-2020/evaluator:latest
+  # needs: 
+  #   - "give-score"
   before_script:
-    - sudo yum install python3
     - ls -lah
   script:
     - "python report-score.py"
