@@ -99,3 +99,10 @@ give-score:
   artifacts:
     paths:
       - "test-results"
+
+report-score:
+  stage: evaluate
+  needs: 
+    - give-score
+  script:
+    - "python report-score.py"
