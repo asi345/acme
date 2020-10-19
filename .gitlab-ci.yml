@@ -1,6 +1,7 @@
 stages:
   - test
   - evaluate
+  - report
 
 variables:
   DOCKER_DRIVER: overlay2
@@ -101,7 +102,7 @@ give-score:
       - "test-results"
 
 report-score:
-  stage: evaluate
+  stage: report
   needs: 
     - "give-score"
   script:
