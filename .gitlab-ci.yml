@@ -107,6 +107,6 @@ report-score:
   # needs: 
   #   - "give-score"
   before_script:
-    - ls -lah $CI_PROJECT_DIR
+    - ls -lah project
   script:
     - "python report-score.py"
