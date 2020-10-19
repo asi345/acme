@@ -105,5 +105,8 @@ report-score:
   stage: report
   needs: 
     - "give-score"
+  before_script:
+    - sudo yum install python3
+    - ls -lah
   script:
     - "python report-score.py"
