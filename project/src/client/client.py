@@ -1,5 +1,6 @@
 import json
 import logging
+import random
 import threading
 from hashlib import sha256
 from pathlib import Path
@@ -20,6 +21,7 @@ from src.client.structs import (
     ACMEChallenge,
     ChallengeType,
     OrderStatus,
+    ChallengeStatus,
 )
 from src.communication.transport import TransportHelper
 from src.dns.dnsserver import (
@@ -120,6 +122,32 @@ class ACMEClient:
 
         return s
 
+    def _wait_for_valid_challenge(self, chal_url, retries=5):
+        for i in range(retries):
+            status = self.get_challenge_status(chal_url)
+            if status != ChallengeStatus.VALID:
+                timeout = random.randint(2, 10)
+                LOGGER.debug(f"Challenge not yet valid, waiting for {timeout}s")
+                sleep(timeout)
+            else:
+                LOGGER.info(f"✅ Challenge became valid. {chal_url}")
+                return
+
+        raise TimeoutError("Timeout while waiting for challenge to become valid")
+
+    def _wait_for_ready_order(self, order_url, retries=5):
+        for i in range(retries):
+            order = self.get_order(order_url)
+            if order.status != OrderStatus.READY:
+                timeout = random.randint(2, 10)
+                LOGGER.debug(f"Order not yet ready, waiting for {timeout}s")
+                sleep(timeout)
+            else:
+                LOGGER.info(f"✅ Order became ready. {order_url}")
+                return
+
+        raise TimeoutError("Timeout while waiting for order to become ready")
+
     def dns_challenge(self, domains: List[str]) -> ACMEOrder:
         order = self.create_order(domains)
         self.dns = ACMEDNS()
@@ -143,13 +171,11 @@ class ACMEClient:
 
                     # notify ACME server that DNS is ready
                     self.transport.post(url=chal.url, content={})
-                    sleep(5)
-                    LOGGER.info(
-                        f"Challenge status for {domain}:{self.get_challenge_status(chal.url)}"
-                    )
+                    self._wait_for_valid_challenge(chal.url)
 
         # stop DNS server after challenges were performed
         self.dns.stop()
+        self._wait_for_ready_order(order.url_id)
         # update order object and return
         return self.get_order(order.url_id)
 
@@ -159,7 +185,7 @@ class ACMEClient:
         self.dns = ACMEDNS(dns_zone)
         self.dns.start()
 
-        tokens = dict() # type: Dict[str, Dict[str, str]]
+        tokens = dict()  # type: Dict[str, Dict[str, str]]
         for auth in order.authorizations:
             # we need to fulfill all authorizations here
             authorization = self.get_authorization(auth)
@@ -171,24 +197,20 @@ class ACMEClient:
 
         if tokens:
             challenge_thread = threading.Thread(
-                target=start_challenge_server,
-                args=("0.0.0.0", list(tokens.values()))
+                target=start_challenge_server, args=("0.0.0.0", list(tokens.values()))
             )
             challenge_thread.start()
 
             for challenge_url in tokens.keys():
                 # notify ACME server that HTTP is ready
                 self.transport.post(url=challenge_url, content={})
-                sleep(5)
-                LOGGER.info(
-                    f"Challenge status for {challenge_url}:{self.get_challenge_status(challenge_url)}"
-                )
+                self._wait_for_valid_challenge(challenge_url)
         else:
             raise Exception("No challenges found")
 
-
         # stop DNS server after challenges were performed
         self.dns.stop()
+        self._wait_for_ready_order(order.url_id)
         # update order object and return
         return self.get_order(order.url_id)
 
@@ -224,3 +246,6 @@ class ACMEClient:
                 ).decode("utf-8")
             },
         )
+
+        if resp.status_code == 200:
+            LOGGER.info("✅ Successfully revoked cert.")

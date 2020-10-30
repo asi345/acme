@@ -91,8 +91,8 @@ class JWK(JWFBaseClass):
         valid_keys = ["e", "kty", "n"]
         for key, value in self.data.items():
             if key in valid_keys:
-                tmp.update({key:value})
-        return json.dumps(tmp, sort_keys=True, separators=(",",":"))
+                tmp.update({key: value})
+        return json.dumps(tmp, sort_keys=True, separators=(",", ":"))
 
     def get_key_authorization(self, token: str):
         """

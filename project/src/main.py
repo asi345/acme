@@ -87,5 +87,5 @@ def main():
 
 
 if __name__ == "__main__":
-    _setup_logger(logging.DEBUG)
+    _setup_logger(logging.INFO)
     main()

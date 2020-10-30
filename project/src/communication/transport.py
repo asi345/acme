@@ -8,7 +8,7 @@ from requests import Response, HTTPError
 from requests.exceptions import SSLError
 
 from src.communication.jwf import JWSProtectedHeader, JWK, JWSPayload, JWSBody
-from src.utils.exceptions import BAD_NONCE_RESPONSE
+from src.utils.exceptions import BAD_NONCE_RESPONSE, ALREADY_REVOKED_RESPONSE
 from src.utils.utils import (
     ACME_ENDPOINT_NONCE,
     ACME_ENDPOINT_REGISTER,
@@ -150,6 +150,8 @@ class TransportHelper:
                 proteced_header.nonce = error_nonce
                 LOGGER.warning(f"Request for {url} retrying now...")
                 return self.post(url, content, proteced_header, retry_count + 1)
+            elif r_content["type"] == ALREADY_REVOKED_RESPONSE:
+                LOGGER.error(f"Certificate already revoked. Continuing...")
 
     def get(self, url: str) -> Response:
         return self.session.get(url)
